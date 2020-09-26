@@ -66,12 +66,21 @@ sensor:
 ##### Additional configuration options
 | Option | Type |Default Value | Description |  
 | -- | -- | -- | -- |
-| `rounding`| Boolean | `True` | Enable/disable rounding of the average of all measurements taken within the number seconds specified with 'period'. |  
-| `decimals` | positive integer | `2`| Number of decimal places to round if rounding is enabled. NOTE: the raw Celsius is rounded and setting `decimals: 0` will still result in decimal values returned for Fahrenheit as well as temperatures being off by up to 1 degree `F`.|
-| `period` | positive integer | `60` | The period in seconds during which the sensor readings are collected and transmitted to Home Assistant after averaging. The Govee devices broadcast roughly once per second so this limits amount of mostly duplicate data stored in  Home Assistant's database. |
+| `report_fahrenheit` | Boolean | `False` | True for Fahrenheit, False for Celsius. |
+| `rounding`| Boolean | `True` | Enable/disable rounding of the measurements reported to Home Assistant.  (Either way, we always use maximum precision while collecting the data points to be averaged each `period`.)  NOTE: By default, this will round as Celsius, but if 'report_fahrenheit' is True, this will round as Fahrenheit.  If the Home Assistant UI converts to the other unit (due to global preference), you may see more decimal places than expected. |
+| `decimals` | positive integer | `2`| Number of decimal places to round to (only if `rounding` is enabled). |
+| `period_secs` | positive integer | `60` | The amount of time, in seconds, during which the sensor readings are collected before reporting the average to Home Assistant. The devices broadcast roughly once per second, so this limits the amount of mostly duplicate data stored in Home Assistant's database. |
 | `log_spikes` |  Boolean | `False` | Puts information about each erroneous spike in the Home Assistant log. |
-| `use_median` | Boolean  | `False` | Use median as sensor output instead of mean (helps with "spiky" sensors). Please note that both the median and the mean values in any case are present as the sensor state attributes. |
-| `hci_device`| string | `hci0` | HCI device name used for scanning. |
+| `use_median` | Boolean  | `False` | Use median as sensor output instead of mean (helps with "spiky" sensors). Either way, both the median and the mean values are present in the device state attributes (which can be used to make Template Sensors). |
+| `temp_range_min_celsius` | float | `-45.0` | Can set the lower bound of reasonable measurements, in Celsius (even if `report_fahrenheit` is enabled).  Temperature measurements lower than this will be discarded. |
+| `temp_range_max_celsius` | float | `70.0` | Can set the upper bound of reasonable measurements, in Celsius (even if `report_fahrenheit` is enabled).  Temperature measurements higher than this will be discarded. |
+| `temperature_entities` | Boolean  | `True` | Can disable this if you don't want the temperature entities for the sensor devices. |
+| `humidity_entities` | Boolean  | `True` | Can disable this if you don't want the humidity entities for the sensor devices. |
+| `battery_entities` | Boolean  | `False` | Can enable this if you want a separate entity to track the battery percentage for each sensor device. |
+| `num_samples_entities` | Boolean  | `False` | Can enable this if you want a separate entity to track the number of samples received each period for each sensor device. |
+| `rssi_entities` | Boolean  | `False` | Can enable this if you want a separate entity to track the RSSI for each sensor device. |
+| `hci_device`| string | `hci0` | HCI device name used for scanning.  May need to be changed if you have multiple Bluetooth adapters connected. |
+| `govee_devices` | list of objects | None | Same format as `moat_devices`, but supports Govee sensors H5051, H5072, H5074, H5075, and H5102.  I use this because the "python-bleson" library used here only supports 1 scan at a time, so this integration can't run at the same time as https://github.com/Home-Is-Where-You-Hang-Your-Hack/sensor.goveetemp_bt_hci |
 
 
 ### Debugging
