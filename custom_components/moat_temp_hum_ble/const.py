@@ -3,12 +3,12 @@
 from enum import Enum
 
 # Configuration options
+CONF_REPORT_FAHRENHEIT = "report_fahrenheit"
 CONF_ROUNDING = "rounding"
 CONF_DECIMALS = "decimals"
 CONF_PERIOD_SECS = "period_secs"
 CONF_LOG_SPIKES = "log_spikes"
 CONF_USE_MEDIAN = "use_median"
-CONF_REPORT_FAHRENHEIT = "report_fahrenheit"
 CONF_TEMP_RANGE_MIN_CELSIUS = "temp_range_min_celsius"
 CONF_TEMP_RANGE_MAX_CELSIUS = "temp_range_max_celsius"
 CONF_TEMPERATURE_ENTITIES = "temperature_entities"
@@ -23,12 +23,12 @@ CONF_DEVICE_MAC = "mac"
 CONF_DEVICE_NAME = "name"
 
 # Default values for configuration options
+DEFAULT_REPORT_FAHRENHEIT = False
 DEFAULT_ROUNDING = True
 DEFAULT_DECIMALS = 2
 DEFAULT_PERIOD = 60
 DEFAULT_LOG_SPIKES = False
 DEFAULT_USE_MEDIAN = False
-DEFAULT_REPORT_FAHRENHEIT = False
 DEFAULT_TEMP_RANGE_MIN = -45.0
 DEFAULT_TEMP_RANGE_MAX = 70.0
 DEFAULT_TEMPERATURE_ENTITIES = True
