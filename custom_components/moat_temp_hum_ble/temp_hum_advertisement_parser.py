@@ -50,52 +50,56 @@ def rescale_clamped(value: float, in_min: float, in_max: float, out_min: float, 
         return out_min + (out_max - out_min) * (value - in_min) / (in_max - in_min)
 
 
-def moat_s2_battery_voltage_to_percentage(battery_voltage: int) -> float:
-    return rescale_clamped(battery_voltage, 2760, 2820, 1.0, 100.0)
+def moat_s2_battery_voltage_to_percentage(battery_voltage_mvolts: int) -> float:
+    # In reality, this isn't linear and it also depends on tempaerature.
+    # I'll collect samples and probably adjust when my batteries actually need replacement (sometime in 2021).
+    return rescale_clamped(battery_voltage_mvolts, 2760, 2820, 1.0, 100.0)
 
 
 class TempHumAdvertisement:
     """Thermometer/hygrometer BLE sensor advertisement parser class."""
 
+    mac: Optional[str]
     name: Optional[str]
     mfg_data: bytes  # The manufacturer-specific data from the advertisement.
     temperature: Optional[float]
     humidity: Optional[float]
-    battery: Optional[int]
-    mac: Optional[str]
     rssi: Optional[int]
-    _address: bytes
+    battery: Optional[int]  # As estimated percentage.
+    battery_millivolts: Optional[int]  # Not available for all models.
 
     def __init__(self, data: bytes, brand: DeviceBrand):
         """Init."""
         try:
-            self._address = data[3:9]
-            self.mac = reverse_mac(self._address)
+            #  Byte 0: Num reports to follow (we only expect 01)
+            #  Byte 1: GAP (Generic Access Profile) ADV type (can be 00=ADV_IND or 04=SCAN_RSP)
+            #  Byte 2: GAP Addr type (Govees send 00=LE_PUBLIC_ADDRESS, Moats send 01=LE_RANDOM_ADDRESS)
+            #  Bytes 3-8: MAC address (reverse byte order)
+            self.mac = reverse_mac(data[3:9])
+            #  Byte 9: Length (not counting header or final RSSI byte, so should be 11 less than len(data).
+            #  Bytes 10-[len(data)-1]: List of GAP Data
+            #    Byte 0: GAP Data length
+            #    Byte 1: GAP Data type
+            #    Bytes 2-[(GAP Data length)-2]: GAP Data payload
+            #  Byte [len(data)-1]: Signal Power (RSSI)
             self.rssi = rssi_from_byte(data[-1])
-            self.raw_data = data[10:-1]
+
             self.flags = 6
             self.name = None
             self.packet = None
             self.temperature = None
             self.humidity = None
             self.battery = None
-
-            #  Byte 0: Num reports to follow (we only expect 01)
-            #  Byte 1: GAP ADV type (can be 00=ADV_IND or 04=SCAN_RSP)
-            #  Byte 2: GAP Addr type (Govees send 00=LE_PUBLIC_ADDRESS, Moats send 01=LE_RANDOM_ADDRESS)
-            #  Bytes 3-8: MAC address (reverse byte order)
-            #  Byte 9: Length (not counting header or final RSSI byte, so should be 11 less than the data raw_data size)
-            #  Bytes 10-(-1): raw_data
-            #    Byte 0: GAP (Generic Access Profile) length
-            #    Byte 1: GAP type
-            #    Bytes 2-(length): payload
-            #  Byte (-1): Signal Power (RSSI at 1 foot as measured by the transmitter's manufacturer)
+            self.battery_millivolts = None
 
             pos = 10
             while pos < len(data) - 1:
+                #    Byte 0: GAP Data length
                 length = data[pos]
-                payload_offset = pos + 2
+                #    Byte 1: GAP Data Type
                 gap_type = data[pos + 1]
+                #    Bytes 2-[GAP length - 2]: GAP Data payload
+                payload_offset = pos + 2
                 payload_end = payload_offset + length - 1
                 payload = data[payload_offset:payload_end]
                 _LOGGER.debug("Pos=%d Type=%02x Len=%d Payload=%s", pos, gap_type, length, hex_string(payload))
@@ -115,14 +119,15 @@ class TempHumAdvertisement:
 
             # Not all advertisements contain the measurement data.
             if (brand is DeviceBrand.MOAT) and self.check_is_moat_s2():
-                # Conversions were kindly provided by the Moat developer, Erik Laybourne:
-                timestamp = little_endian_to_unsigned_int(self.mfg_data[8:12])
+                # Packet format (including temperature and humidity conversions) were kindly provided by the Moat
+                # developer, Erik Laybourne.
+
+                # timestamp = little_endian_to_unsigned_int(self.mfg_data[8:12])
                 self.temperature = -46.85 + 175.72 * (little_endian_to_unsigned_int(self.mfg_data[12:14]) / 65536.0)
                 self.humidity = -6.0 + 125.0 * (little_endian_to_unsigned_int(self.mfg_data[14:16]) / 65536.0)
-                battery_voltage = little_endian_to_unsigned_int(self.mfg_data[16:18])
-                self.battery = int(moat_s2_battery_voltage_to_percentage(battery_voltage))
+                self.battery_millivolts = little_endian_to_unsigned_int(self.mfg_data[16:18])
+                self.battery = int(moat_s2_battery_voltage_to_percentage(self.battery_millivolts))
                 self.packet = hex_string(self.mfg_data[8:18]).replace(" ", "")
-                _LOGGER.debug("Moat S2:%s: %d: %d", self.mac, timestamp, battery_voltage)
             elif brand is DeviceBrand.GOVEE:
                 if self.check_is_gvh5075_gvh5072():
                     mfg_data_5075 = hex_string(self.mfg_data[3:6]).replace(" ", "")
@@ -149,7 +154,7 @@ class TempHumAdvertisement:
             else:
                 return
             _LOGGER.debug("Read=%s %f %f %d (%s) %r",
-                         self.mac, self.temperature, self.humidity, self.battery, self.packet, self.rssi)
+                          self.mac, self.temperature, self.humidity, self.battery, self.packet, self.rssi)
         except (ValueError, IndexError):
             pass
 

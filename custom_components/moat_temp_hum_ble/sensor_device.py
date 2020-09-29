@@ -37,12 +37,13 @@ class SensorDevice:
     _temp_range_min: int
     _temp_range_max: int
 
-    # Measurements:
+    # Measurements (reset each period):
     _num_measurements: int
     _rssi_measurements: List[int]
     _temperature_measurements: List[float]
     _humidity_measurements: List[float]
-    _latest_battery_measurement: Optional[int]
+    _battery_percentage_measurements: List[int]
+    _battery_millivolt_measurements: List[int]
     _latest_raw_data_str: Optional[str]
 
     def __init__(self, mac: str, device_params: CreateDeviceParams) -> None:
@@ -62,7 +63,8 @@ class SensorDevice:
         self._rssi_measurements = []
         self._temperature_measurements = []
         self._humidity_measurements = []
-        self._latest_battery_measurement = None
+        self._battery_percentage_measurements = []
+        self._battery_millivolt_measurements = []
         self._latest_raw_data_str = None
 
     # Configuration:
@@ -117,15 +119,20 @@ class SensorDevice:
         return self._latest_raw_data_str
 
     @property
-    def battery(self) -> Optional[int]:
-        """Return battery remaining value."""
-        return self._latest_battery_measurement
+    def battery_percentage(self) -> Optional[int]:
+        """Return battery remaining value, as percentage."""
+        try:
+            return round(sts.mean(self._battery_percentage_measurements))
+        except (AssertionError, sts.StatisticsError):
+            return None
 
-    @battery.setter
-    def battery(self, value: Optional[int]) -> None:
-        """Set battery remaining value."""
-        if isinstance(value, int):
-            self._latest_battery_measurement = value
+    @property
+    def battery_millivolts(self) -> Optional[int]:
+        """Return battery voltage, in millivolts."""
+        try:
+            return round(sts.mean(self._battery_millivolt_measurements))
+        except (AssertionError, sts.StatisticsError):
+            return None
 
     @property
     def rssi(self) -> Optional[int]:
@@ -135,8 +142,7 @@ class SensorDevice:
         except (AssertionError, sts.StatisticsError):
             return None
 
-    @rssi.setter
-    def rssi(self, value: Optional[int]) -> None:
+    def append_rssi(self, value: Optional[int]) -> None:
         """Set RSSI value."""
         if isinstance(value, int) and value < 0:
             self._rssi_measurements.append(value)
@@ -190,6 +196,7 @@ class SensorDevice:
         return avg
 
     def update(self, temperature: Optional[float], humidity: Optional[float],
+               battery_percentage: Optional[int], battery_millivolts: Optional[int],
                packet: Optional[Union[int, str]]) -> None:
         # Check if temperature within bounds
         if temperature is not None and self._temp_range_min <= temperature <= self._temp_range_max:
@@ -202,6 +209,16 @@ class SensorDevice:
             self._humidity_measurements.append(humidity)
         elif self._log_spikes:
             _LOGGER.error("Humidity spike: %r (%r)", humidity, self._mac)
+
+        # Check if battery % within bounds
+        if battery_percentage is not None and 0 <= battery_percentage <= 100:
+            self._battery_percentage_measurements.append(battery_percentage)
+        elif self._log_spikes:
+            _LOGGER.error("Battery percentage spike: %r (%r)", battery_percentage, self._mac)
+
+        # Check if battery % within bounds
+        if battery_millivolts is not None:
+            self._battery_millivolt_measurements.append(battery_millivolts)
 
         self._latest_raw_data_str = str(packet)
         self._num_measurements += 1

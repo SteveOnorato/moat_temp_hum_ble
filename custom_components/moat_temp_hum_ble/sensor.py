@@ -26,7 +26,6 @@ from homeassistant.const import (  # type: ignore
     TEMP_FAHRENHEIT,
     ATTR_BATTERY_LEVEL,
 )
-from homeassistant.helpers import device_registry
 from homeassistant.helpers.entity import Entity  # type: ignore
 from homeassistant.helpers.event import track_point_in_utc_time  # type: ignore
 from .const import *
@@ -109,11 +108,13 @@ def setup_platform(hass, config, add_entities, discovery_info=None) -> None:
                     # If the advertisement was parsed (raw_data was populated), update our values.
                     if parsed_advertisement.packet is not None:
                         curr_wrapper.sensorDevice.update(parsed_advertisement.temperature,
-                                                         parsed_advertisement.humidity, parsed_advertisement.packet)
+                                                         parsed_advertisement.humidity,
+                                                         parsed_advertisement.battery,
+                                                         parsed_advertisement.battery_millivolts,
+                                                         parsed_advertisement.packet)
 
-                    # Update RSSI and battery level
-                    curr_wrapper.sensorDevice.rssi = parsed_advertisement.rssi
-                    curr_wrapper.sensorDevice.battery = parsed_advertisement.battery
+                    # Update RSSI (even if the advertisement didn't have measurement data)
+                    curr_wrapper.sensorDevice.append_rssi(parsed_advertisement.rssi)
 
     def init_configured_devices() -> None:
         """
@@ -139,7 +140,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None) -> None:
         new_device = SensorDevice(mac, device_conf)
         # Initialize Home Assistant Entities
         name = config_device.get("name", mac)
-        ha_entities = []
+        ha_entities: List[TempHumSensorEntity] = []
         if config[CONF_TEMPERATURE_ENTITIES]:
             ha_entities.append(TemperatureEntity(mac, name, device_conf.report_fahrenheit))
         if config[CONF_HUMIDITY_ENTITIES]:
@@ -197,7 +198,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None) -> None:
 
                 # Battery level (optional, based on config)
                 if config[CONF_BATTERY_ENTITIES]:
-                    setattr(entities[curr_entity_index], "_state", device.battery)
+                    setattr(entities[curr_entity_index], "_state", device.battery_percentage)
                     curr_entity_index += 1
 
                 # Number of samples per period (optional, based on config)
@@ -210,7 +211,9 @@ def setup_platform(hass, config, add_entities, discovery_info=None) -> None:
                     dev_state_attrs = getattr(entity, _DEV_STATE_ATTR)
                     dev_state_attrs["last raw data"] = device.last_raw_data
                     dev_state_attrs["rssi"] = device.rssi
-                    dev_state_attrs[ATTR_BATTERY_LEVEL] = device.battery
+                    dev_state_attrs[ATTR_BATTERY_LEVEL] = device.battery_percentage
+                    if device.battery_millivolts is not None:
+                        dev_state_attrs["battery mV"] = device.battery_millivolts
                     dev_state_attrs[num_measurements_attr] = device.num_measurements
                     entity.async_schedule_update_ha_state()
 
@@ -236,7 +239,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None) -> None:
         time_offset = dt_util.utcnow() + timedelta(seconds=config[CONF_PERIOD_SECS])
         # update_ble_loop() will be called again after time_offset.
         # (And in the meantime, the HCISocketPoller thread will make calls to our handle_meta_event callback.)
-        track_point_in_utc_time(hass, update_ble_loop, time_offset)  # type: ignore[call-arg]
+        track_point_in_utc_time(hass, update_ble_loop, time_offset)  # type: ignore
 
     ###########################################################################
 
