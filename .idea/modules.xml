@@ -2,7 +2,9 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/../home-assistant-core/.idea/home-assistant-core.iml" filepath="$PROJECT_DIR$/../home-assistant-core/.idea/home-assistant-core.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/moat_temp_hum_ble.iml" filepath="$PROJECT_DIR$/.idea/moat_temp_hum_ble.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../python-bleson/.idea/python-bleson.iml" filepath="$PROJECT_DIR$/../python-bleson/.idea/python-bleson.iml" />
     </modules>
   </component>
 </project>
