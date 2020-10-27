@@ -15,6 +15,7 @@ A custom component for [Home Assistant](https://www.home-assistant.io) that list
 - Alternatively, you can install it manually. Just copy & paste the content of the `moat_temp_hum_ble/custom_components` folder into your `config/custom_components` directory.
      As example, you will get the `sensor.py` file in the following path: `/config/custom_components/moat_temp_hum_ble/sensor.py`.
 
+*NOTE:* the following instructions about setting device permissions are an edge case for a very specific set up.  (If you do not understand, do not worry about it).
 - If running Home Assistant without root access, the [Bleson](https://github.com/TheCellule/python-bleson) Python library used for accessing Bluetooth requires the following permissions applied to the Python 3 binary. If using a virtual environment for HA, this binary will be in the virtual environment path.
 
      *NOTE*: Replace "path" with the path to the Python3 binary (example: /srv/homeassistant/bin/python3)
