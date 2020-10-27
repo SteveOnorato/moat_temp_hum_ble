@@ -1,7 +1,7 @@
 {
   "domain": "moat_temp_hum_ble",
   "name": "Moat BLE HCI monitor sensor integration",
-  "documentation": "https://github.com/SteveOnorato/sensor.moat_bt_hci",
+  "documentation": "https://github.com/SteveOnorato/moat_temp_hum_ble",
   "requirements": ["bleson==0.1.6"],
   "dependencies": [],
   "codeowners": ["@steveonorato"]
