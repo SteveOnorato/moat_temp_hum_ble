@@ -26,7 +26,7 @@ from homeassistant.const import (  # type: ignore
     TEMP_FAHRENHEIT,
     ATTR_BATTERY_LEVEL,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import Entity  # type: ignore
 from homeassistant.helpers.event import track_point_in_utc_time  # type: ignore
 from .const import *
@@ -42,6 +42,8 @@ DEVICES_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_DEVICE_MAC): cv.string,
         vol.Optional(CONF_DEVICE_NAME): cv.string,
+        vol.Optional(CONF_DEVICE_CALIBRATE_TEMP): float,
+        vol.Optional(CONF_DEVICE_CALIBRATE_HUMIDITY): float,
     }
 )
 
@@ -54,8 +56,8 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_LOG_SPIKES, default=DEFAULT_LOG_SPIKES): cv.boolean,
         vol.Optional(CONF_UPDATE_WHEN_UNAVAILABLE, default=DEFAULT_UPDATE_WHEN_UNAVAILABLE): cv.boolean,
         vol.Optional(CONF_USE_MEDIAN, default=DEFAULT_USE_MEDIAN): cv.boolean,
-        vol.Optional(CONF_TEMP_RANGE_MIN_CELSIUS, default=DEFAULT_TEMP_RANGE_MIN): int,
-        vol.Optional(CONF_TEMP_RANGE_MAX_CELSIUS, default=DEFAULT_TEMP_RANGE_MAX): int,
+        vol.Optional(CONF_TEMP_RANGE_MIN_CELSIUS, default=DEFAULT_TEMP_RANGE_MIN): float,
+        vol.Optional(CONF_TEMP_RANGE_MAX_CELSIUS, default=DEFAULT_TEMP_RANGE_MAX): float,
         vol.Optional(CONF_TEMPERATURE_ENTITIES, default=DEFAULT_TEMPERATURE_ENTITIES): cv.boolean,
         vol.Optional(CONF_HUMIDITY_ENTITIES, default=DEFAULT_HUMIDITY_ENTITIES): cv.boolean,
         vol.Optional(CONF_BATTERY_ENTITIES, default=DEFAULT_BATTERY_ENTITIES): cv.boolean,
@@ -118,27 +120,31 @@ def setup_platform(hass: HomeAssistant, config, add_entities, discovery_info=Non
         Assistant.
         """
 
-        device_params = CreateDeviceParams(report_fahrenheit=config[CONF_REPORT_FAHRENHEIT],
-                                           decimal_places=config[CONF_DECIMALS] if config[CONF_ROUNDING] else None,
-                                           log_spikes=config[CONF_LOG_SPIKES],
-                                           temp_range_min=config[CONF_TEMP_RANGE_MIN_CELSIUS],
-                                           temp_range_max=config[CONF_TEMP_RANGE_MAX_CELSIUS])
+        shared_dev_params = CreateDeviceParams(report_fahrenheit=config[CONF_REPORT_FAHRENHEIT],
+                                               decimal_places=config[CONF_DECIMALS] if config[CONF_ROUNDING] else None,
+                                               log_spikes=config[CONF_LOG_SPIKES],
+                                               temp_range_min=config[CONF_TEMP_RANGE_MIN_CELSIUS],
+                                               temp_range_max=config[CONF_TEMP_RANGE_MAX_CELSIUS])
 
         # Initialize a wrapper for each configured device.
-        for config_dev in config[CONF_MOAT_DEVICES]:
-            init_wrapper(config_dev, device_params, DeviceBrand.MOAT)
-        for config_dev in config[CONF_GOVEE_DEVICES]:
-            init_wrapper(config_dev, device_params, DeviceBrand.GOVEE)
+        for device_config in config[CONF_MOAT_DEVICES]:
+            init_wrapper(device_config, shared_dev_params, DeviceBrand.MOAT)
+        for device_config in config[CONF_GOVEE_DEVICES]:
+            init_wrapper(device_config, shared_dev_params, DeviceBrand.GOVEE)
 
-    def init_wrapper(config_device, device_conf, brand: DeviceBrand):
-        mac = config_device["mac"]
-        device_conf.description = config_device.get("name", None)
-        new_device = SensorDevice(mac, device_conf)
+    def init_wrapper(device_config, device_params: CreateDeviceParams, brand: DeviceBrand):
+        # Override the shared configuration with the specific configuration for this device.
+        mac = device_config[CONF_DEVICE_MAC]
+        device_params.description = device_config.get(CONF_DEVICE_NAME, None)
+        device_params.calibrate_temp = device_config.get(CONF_DEVICE_CALIBRATE_TEMP, DEFAULT_DEVICE_CALIBRATE_TEMP)
+        device_params.calibrate_humidity = device_config.get(CONF_DEVICE_CALIBRATE_HUMIDITY,
+                                                             DEFAULT_DEVICE_CALIBRATE_HUMIDITY)
+        new_device = SensorDevice(mac, device_params)
         # Initialize Home Assistant Entities
-        name = config_device.get("name", mac)
+        name = device_config.get(CONF_DEVICE_NAME, mac)  # Use provided name, or fall-back to using the MAC.
         ha_entities: List[TempHumSensorEntity] = []
         if config[CONF_TEMPERATURE_ENTITIES]:
-            ha_entities.append(TemperatureEntity(mac, name, device_conf.report_fahrenheit))
+            ha_entities.append(TemperatureEntity(mac, name, device_params.report_fahrenheit))
         if config[CONF_HUMIDITY_ENTITIES]:
             ha_entities.append(HumidityEntity(mac, name))
         if config[CONF_RSSI_ENTITIES]:
@@ -152,9 +158,11 @@ def setup_platform(hass: HomeAssistant, config, add_entities, discovery_info=Non
 
         add_entities(ha_entities)
 
-    def report_device_data() -> None:
+    @callback
+    def async_report_device_data() -> None:
         """Move the collected data from each SensorDevice to the Home Assistant entities and reset the collected data.
-        """
+
+        Safe to call within the event loop."""
         use_median = config[CONF_USE_MEDIAN]
 
         _DEV_STATE_ATTR = "_device_state_attributes"
@@ -225,9 +233,9 @@ def setup_platform(hass: HomeAssistant, config, add_entities, discovery_info=Non
                     #  incorrectly being triggered for updates while it is disabled. This is a bug in the
                     #  moat_temp_hum_ble integration
                     if entity.enabled:
-                        entity.schedule_update_ha_state()
+                        entity.async_schedule_update_ha_state()
                     else:
-                        _LOGGER.info("Entity %s is disabled; skip update.", entity.entity_id)
+                        _LOGGER.debug("Entity %s is disabled; skip update.", entity.entity_id)
 
             # TODO: There is a race condition.
             # We are in a SyncWorker thread here, but the HCISocketPoller thread can
@@ -258,7 +266,7 @@ def setup_platform(hass: HomeAssistant, config, add_entities, discovery_info=Non
             # hciconfig hci0 up
             adapter.start_scanning()
 
-            report_device_data()
+            hass.add_job(async_report_device_data)
         except RuntimeError as error:
             _LOGGER.error("Error during update_ble_loop: %s", error)
 

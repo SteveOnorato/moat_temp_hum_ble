@@ -21,6 +21,8 @@ class CreateDeviceParams:
     temp_range_min: int
     temp_range_max: int
     description: Optional[str] = None
+    calibrate_temp: float = 0.0
+    calibrate_humidity: float = 0.0
 
 
 class SensorDevice:
@@ -36,6 +38,11 @@ class SensorDevice:
     _log_spikes: bool
     _temp_range_min: int
     _temp_range_max: int
+    _calibrate_temp: float
+    """When we report to HA, we will modify the temperature measurements by this amount (in degrees Fahrenheit or
+     Celsius, depending on the "report_fahrenheit" setting)."""
+    _calibrate_humidity: float
+    """When we report to HA, we will modify the measurements by this amount (in %)."""
 
     # Measurements (reset each period):
     _num_measurements: int
@@ -55,6 +62,8 @@ class SensorDevice:
         self._log_spikes = device_params.log_spikes
         self._temp_range_min = device_params.temp_range_min
         self._temp_range_max = device_params.temp_range_max
+        self._calibrate_temp = device_params.calibrate_temp
+        self._calibrate_humidity = device_params.calibrate_humidity
         self.reset()
 
     def reset(self) -> None:
@@ -156,9 +165,11 @@ class SensorDevice:
             return None
         if self._report_fahrenheit:
             avg = celsius_to_fahrenheit(avg)
+        calibrated_avg = avg + self._calibrate_temp
         if self._decimal_places is not None:
-            avg = float(round(avg, self._decimal_places))
-        return avg
+            calibrated_avg = float(round(calibrated_avg, self._decimal_places))
+        _LOGGER.debug("%s: reporting %s (%s + %s)", self.mac, calibrated_avg, avg, self._calibrate_temp)
+        return calibrated_avg
 
     @property
     def median_temperature(self) -> Optional[float]:
@@ -169,9 +180,11 @@ class SensorDevice:
             return None
         if self._report_fahrenheit:
             avg = celsius_to_fahrenheit(avg)
+        calibrated_avg = avg + self._calibrate_temp
         if self._decimal_places is not None:
-            avg = float(round(avg, self._decimal_places))
-        return avg
+            calibrated_avg = float(round(calibrated_avg, self._decimal_places))
+        _LOGGER.debug("%s: reporting %s (%s + %s)", self.mac, calibrated_avg, avg, self._calibrate_temp)
+        return calibrated_avg
 
     @property
     def mean_humidity(self) -> Optional[float]:
@@ -180,9 +193,11 @@ class SensorDevice:
             avg = sts.mean(self._humidity_measurements)
         except (AssertionError, sts.StatisticsError):
             return None
+        calibrated_avg = avg + self._calibrate_humidity
         if self._decimal_places is not None:
-            return float(round(avg, self._decimal_places))
-        return avg
+            calibrated_avg = float(round(calibrated_avg, self._decimal_places))
+        _LOGGER.debug("%s: reporting %s (%s + %s)", self.mac, calibrated_avg, avg, self._calibrate_humidity)
+        return calibrated_avg
 
     @property
     def median_humidity(self) -> Optional[float]:
@@ -191,9 +206,11 @@ class SensorDevice:
             avg = sts.median(self._humidity_measurements)
         except (AssertionError, sts.StatisticsError):
             return None
+        calibrated_avg = avg + self._calibrate_humidity
         if self._decimal_places is not None:
-            return float(round(avg, self._decimal_places))
-        return avg
+            calibrated_avg = float(round(calibrated_avg, self._decimal_places))
+        _LOGGER.debug("%s: reporting %s (%s + %s)", self.mac, calibrated_avg, avg, self._calibrate_humidity)
+        return calibrated_avg
 
     def update(self, temperature: Optional[float], humidity: Optional[float],
                battery_percentage: Optional[int], battery_millivolts: Optional[int],
@@ -202,19 +219,19 @@ class SensorDevice:
         if temperature is not None and self._temp_range_min <= temperature <= self._temp_range_max:
             self._temperature_measurements.append(temperature)
         elif self._log_spikes:
-            _LOGGER.error("Temperature spike: %r (%r)", temperature, self._mac)
+            _LOGGER.warning("Temperature out of range: %r (%r)", temperature, self._mac)
 
         # Check if humidity within bounds
         if humidity is not None and HUMIDITY_MIN <= humidity <= HUMIDITY_MAX:
             self._humidity_measurements.append(humidity)
         elif self._log_spikes:
-            _LOGGER.error("Humidity spike: %r (%r)", humidity, self._mac)
+            _LOGGER.warning("Humidity out of range: %r (%r)", humidity, self._mac)
 
         # Check if battery % within bounds
         if battery_percentage is not None and 0 <= battery_percentage <= 100:
             self._battery_percentage_measurements.append(battery_percentage)
         elif self._log_spikes:
-            _LOGGER.error("Battery percentage spike: %r (%r)", battery_percentage, self._mac)
+            _LOGGER.warning("Battery percentage out of range: %r (%r)", battery_percentage, self._mac)
 
         # Check if battery voltage is present (not all models report this).
         if battery_millivolts is not None:
