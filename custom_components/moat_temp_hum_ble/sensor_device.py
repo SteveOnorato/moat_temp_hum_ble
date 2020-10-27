@@ -216,7 +216,7 @@ class SensorDevice:
         elif self._log_spikes:
             _LOGGER.error("Battery percentage spike: %r (%r)", battery_percentage, self._mac)
 
-        # Check if battery % within bounds
+        # Check if battery voltage is present (not all models report this).
         if battery_millivolts is not None:
             self._battery_millivolt_measurements.append(battery_millivolts)
 
