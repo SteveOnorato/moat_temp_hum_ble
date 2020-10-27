@@ -10,7 +10,7 @@ A custom component for [Home Assistant](https://www.home-assistant.io) that list
 
 **1. Install the custom component:**
 
-- The easiest way is to install it with [HACS](https://hacs.xyz/). First install [HACS](https://hacs.xyz/) if you don't have it yet. After installation, the custom component can be found in the HACS store under integrations.
+- Not ready yet: ~~The easiest way is to install it with [HACS](https://hacs.xyz/). First install [HACS](https://hacs.xyz/) if you don't have it yet. After installation, the custom component can be found in the HACS store under integrations.~~
 
 - Alternatively, you can install it manually. Just copy & paste the content of the `moat_temp_hum_ble/custom_components` folder into your `config/custom_components` directory.
      As example, you will get the `sensor.py` file in the following path: `/config/custom_components/moat_temp_hum_ble/sensor.py`.
