@@ -4,6 +4,7 @@ A custom component for [Home Assistant](https://www.home-assistant.io) that list
 
 ## Supported Devices
 * [Moat S2](https://www.amazon.com/dp/B08DK739F5)
+* Select Govee BLE Sensors
 
 ## Installation
 
@@ -41,6 +42,21 @@ A custom component for [Home Assistant](https://www.home-assistant.io) that list
 ### Configuration Variables
 
 In **configuration.yaml**, specify the sensor platform `moat_temp_hum_ble` and a list of devices with unique MAC address.
+
+There are multiple ways to learn the MAC addresses for your Bluetooth devices.  If you are using Home Assistant Operating System (formerly HassOS), one possibility is:
+* Enable the SSH & Web Terminal Add-on under Supervisor -> Dashboard (see https://community.home-assistant.io/t/home-assistant-community-add-on-ssh-web-terminal/33820).
+** You likely need to disable 'Protection mode' for SSH & Web Terminal and restart the add-on (to enable docker commands)
+* Then, use the Web Terminal to run the following:
+
+```
+docker exec -it $(docker ps -f name=homeassistant -q) bash
+hciconfig hci0 down
+hciconfig hci0 up
+hcitool -i hci0 lescan | grep -i 'Govee\|GVH\|Moat'
+```
+* Leave this running for a bit and it will display the matching devices as it hears from them.
+* Hit Ctrl+C when done.
+* You might want to re-enable 'Protection mode' for SSH & Web Terminal at this point.
 
 *NOTE*: device name is optional.  If not provided, devices will be labeled using the MAC address.
 
