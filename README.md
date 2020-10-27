@@ -43,6 +43,19 @@ A custom component for [Home Assistant](https://www.home-assistant.io) that list
 
 In **configuration.yaml**, specify the sensor platform `moat_temp_hum_ble` and a list of devices with unique MAC address.
 
+#### Simple configuration example:
+*NOTE*: device name is optional.  If not provided, devices will be labeled using the MAC address.
+```
+sensor:
+  - platform: moat_temp_hum_ble
+    moat_devices:
+      - mac: "A4:C1:38:A1:A2:A3"
+        name: Bedroom
+      - mac: "A4:C1:38:B1:B2:B3"
+      - mac: "A4:C1:38:C1:C2:C3"
+        name: Kitchen
+```
+
 There are multiple ways to learn the MAC addresses for your Bluetooth devices.
 ##### Windows
 * Use https://www.microsoft.com/en-us/p/bluetooth-le-explorer/9n0ztkf1qd98?activetab=pivot:overviewtab (thanks, @iamhueman)
@@ -62,20 +75,7 @@ hcitool -i hci0 lescan | grep -i 'Govee\|GVH\|Moat'
 * Hit Ctrl+C when done.
 * You might want to re-enable 'Protection mode' for SSH & Web Terminal at this point.
 
-##### Simple configuration example:
-*NOTE*: device name is optional.  If not provided, devices will be labeled using the MAC address.
-```
-sensor:
-  - platform: moat_temp_hum_ble
-    moat_devices:
-      - mac: "A4:C1:38:A1:A2:A3"
-        name: Bedroom
-      - mac: "A4:C1:38:B1:B2:B3"
-      - mac: "A4:C1:38:C1:C2:C3"
-        name: Kitchen
-```
-
-##### Additional platform configuration options
+#### Additional platform configuration options
 | Option | Type |Default Value | Description |  
 | -- | -- | -- | -- |
 | `report_fahrenheit` | Boolean | `False` | True for Fahrenheit, False for Celsius. |
@@ -95,13 +95,13 @@ sensor:
 | `hci_device`| string | `hci0` | HCI device name used for scanning.  May need to be changed if you have multiple Bluetooth adapters connected. |
 | `govee_devices` | list of objects | None | Same format as `moat_devices`, but supports Govee sensors H5051, H5072, H5074, H5075, and H5102.  I use this because the "python-bleson" library used here only supports 1 scan at a time, so this integration can't successfully run at the same time as https://github.com/Home-Is-Where-You-Hang-Your-Hack/sensor.goveetemp_bt_hci |
 
-##### Additional device configuration options
+#### Additional device configuration options
 | Option | Type |Default Value | Description |  
 | -- | -- | -- | -- |
 | `calibrate_temp` | float | `0.0` | Add this amount to each temperature measurement for this device (in degrees Fahrenheit or Celsius, depending on the "report_fahrenheit" setting). |
 | `calibrate_humidity` | float | `0.0` | Add this amount to each humidity measurement for this device (in %). |
 
-##### Full configuration example:
+#### Full configuration example:
 ```
 sensor:
   - platform: moat_temp_hum_ble
