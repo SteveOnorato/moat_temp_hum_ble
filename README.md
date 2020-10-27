@@ -4,17 +4,19 @@ A custom component for [Home Assistant](https://www.home-assistant.io) that list
 
 ## Supported Devices
 * [Moat S2](https://www.amazon.com/dp/B08DK739F5)
+* Select Govee BLE Sensors
 
 ## Installation
 
 
 **1. Install the custom component:**
 
-- The easiest way is to install it with [HACS](https://hacs.xyz/). First install [HACS](https://hacs.xyz/) if you don't have it yet. After installation, the custom component can be found in the HACS store under integrations.
+- Not ready yet: ~~The easiest way is to install it with [HACS](https://hacs.xyz/). First install [HACS](https://hacs.xyz/) if you don't have it yet. After installation, the custom component can be found in the HACS store under integrations.~~
 
 - Alternatively, you can install it manually. Just copy & paste the content of the `moat_temp_hum_ble/custom_components` folder into your `config/custom_components` directory.
      As example, you will get the `sensor.py` file in the following path: `/config/custom_components/moat_temp_hum_ble/sensor.py`.
 
+*NOTE:* the following instructions about setting device permissions are an edge case for a very specific set up.  (If you do not understand, do not worry about it).
 - If running Home Assistant without root access, the [Bleson](https://github.com/TheCellule/python-bleson) Python library used for accessing Bluetooth requires the following permissions applied to the Python 3 binary. If using a virtual environment for HA, this binary will be in the virtual environment path.
 
      *NOTE*: Replace "path" with the path to the Python3 binary (example: /srv/homeassistant/bin/python3)
@@ -40,6 +42,21 @@ A custom component for [Home Assistant](https://www.home-assistant.io) that list
 ### Configuration Variables
 
 In **configuration.yaml**, specify the sensor platform `moat_temp_hum_ble` and a list of devices with unique MAC address.
+
+There are multiple ways to learn the MAC addresses for your Bluetooth devices.  If you are using Home Assistant Operating System (formerly HassOS), one possibility is:
+* Enable the SSH & Web Terminal Add-on under Supervisor -> Dashboard (see https://community.home-assistant.io/t/home-assistant-community-add-on-ssh-web-terminal/33820).
+** You likely need to disable 'Protection mode' for SSH & Web Terminal and restart the add-on (to enable docker commands)
+* Then, use the Web Terminal to run the following:
+
+```
+docker exec -it $(docker ps -f name=homeassistant -q) bash
+hciconfig hci0 down
+hciconfig hci0 up
+hcitool -i hci0 lescan | grep -i 'Govee\|GVH\|Moat'
+```
+* Leave this running for a bit and it will display the matching devices as it hears from them.
+* Hit Ctrl+C when done.
+* You might want to re-enable 'Protection mode' for SSH & Web Terminal at this point.
 
 *NOTE*: device name is optional.  If not provided, devices will be labeled using the MAC address.
 
