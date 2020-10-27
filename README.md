@@ -43,11 +43,15 @@ A custom component for [Home Assistant](https://www.home-assistant.io) that list
 
 In **configuration.yaml**, specify the sensor platform `moat_temp_hum_ble` and a list of devices with unique MAC address.
 
-There are multiple ways to learn the MAC addresses for your Bluetooth devices.  If you are using Home Assistant Operating System (formerly HassOS), one possibility is:
+There are multiple ways to learn the MAC addresses for your Bluetooth devices.
+##### Windows
+* Use https://www.microsoft.com/en-us/p/bluetooth-le-explorer/9n0ztkf1qd98?activetab=pivot:overviewtab (thanks, @iamhueman)
+##### macOS
+* Use packetlogger.app from "Additional Tools for XCode" https://developer.apple.com/download/more/?=packetlogger (thanks, @tronicdude)
+##### Home Assistant Operating System (formerly HassOS):
 * Enable the SSH & Web Terminal Add-on under Supervisor -> Dashboard (see https://community.home-assistant.io/t/home-assistant-community-add-on-ssh-web-terminal/33820).
-** You likely need to disable 'Protection mode' for SSH & Web Terminal and restart the add-on (to enable docker commands)
+  * You likely need to disable 'Protection mode' for SSH & Web Terminal and restart the add-on (to enable docker commands)
 * Then, use the Web Terminal to run the following:
-
 ```
 docker exec -it $(docker ps -f name=homeassistant -q) bash
 hciconfig hci0 down
@@ -58,9 +62,8 @@ hcitool -i hci0 lescan | grep -i 'Govee\|GVH\|Moat'
 * Hit Ctrl+C when done.
 * You might want to re-enable 'Protection mode' for SSH & Web Terminal at this point.
 
-*NOTE*: device name is optional.  If not provided, devices will be labeled using the MAC address.
-
 ##### Simple configuration example:
+*NOTE*: device name is optional.  If not provided, devices will be labeled using the MAC address.
 ```
 sensor:
   - platform: moat_temp_hum_ble
