@@ -350,6 +350,11 @@ class TempHumSensorEntity(Entity):
             "name": self._device_name,
         }
 
+    @property
+    def available(self) -> bool:
+        """Return whether the device is available or not."""
+        return self.state is not None
+
     async def async_added_to_hass(self) -> None:
         """Run when entity about to be added to hass."""
         _LOGGER.info("Adding entity %s (%s): %s", self.entity_id, self.unique_id, self.name)
