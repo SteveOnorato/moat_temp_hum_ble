@@ -49,9 +49,11 @@ A custom component for [Home Assistant](https://www.home-assistant.io) that list
 
 ### Configuration Variables
 
-Specify the sensor platform `moat_temp_hum_ble` and a list of devices with unique MAC address.
+In **configuration.yaml**, specify the sensor platform `moat_temp_hum_ble` and a list of devices with unique MAC address.
 
 *NOTE*: device name is optional.  If not provided, devices will be labeled using the MAC address.
+
+##### Simple configuration example:
 ```
 sensor:
   - platform: moat_temp_hum_ble
@@ -63,14 +65,15 @@ sensor:
         name: Kitchen
 ```
 
-##### Additional configuration options
+##### Additional platform configuration options
 | Option | Type |Default Value | Description |  
 | -- | -- | -- | -- |
 | `report_fahrenheit` | Boolean | `False` | True for Fahrenheit, False for Celsius. |
 | `rounding`| Boolean | `True` | Enable/disable rounding of the measurements reported to Home Assistant.  (Either way, we always use maximum precision while collecting the data points to be averaged each `period`.)  NOTE: By default, this will round as Celsius, but if 'report_fahrenheit' is True, this will round as Fahrenheit.  If the Home Assistant UI converts to the other unit (due to global preference), you may see more decimal places than expected. |
 | `decimals` | positive integer | `2`| Number of decimal places to round to (only if `rounding` is enabled). |
 | `period_secs` | positive integer | `60` | The amount of time, in seconds, during which the sensor readings are collected before reporting the average to Home Assistant. The devices broadcast roughly once per second, so this limits the amount of mostly duplicate data stored in Home Assistant's database. |
-| `log_spikes` |  Boolean | `False` | Puts information about each erroneous spike in the Home Assistant log. |
+| `log_spikes` | Boolean | `True` | Puts information about each erroneous spike in the Home Assistant log. |
+| `update_when_unavailable` | Boolean | `True` | Determines the behavior when no measurements are received during a reporting period. If True, sets the temperature/humidity/RSSI/battery states to "unavailable". If False, the temperature/humidity/RSSI/battery states will not be updated (this will cause Home Assistant to keep showing the previous value, even though it may be out-of-date). |
 | `use_median` | Boolean  | `False` | Use median as sensor output instead of mean (helps with "spiky" sensors). Either way, both the median and the mean values are present in the device state attributes (which can be used to make Template Sensors). |
 | `temp_range_min_celsius` | float | `-45.0` | Can set the lower bound of reasonable measurements, in Celsius (even if `report_fahrenheit` is enabled).  Temperature measurements lower than this will be discarded. |
 | `temp_range_max_celsius` | float | `70.0` | Can set the upper bound of reasonable measurements, in Celsius (even if `report_fahrenheit` is enabled).  Temperature measurements higher than this will be discarded. |
@@ -80,8 +83,46 @@ sensor:
 | `num_samples_entities` | Boolean  | `False` | Can enable this if you want a separate entity to track the number of samples received each period for each sensor device. |
 | `rssi_entities` | Boolean  | `False` | Can enable this if you want a separate entity to track the RSSI for each sensor device. |
 | `hci_device`| string | `hci0` | HCI device name used for scanning.  May need to be changed if you have multiple Bluetooth adapters connected. |
-| `govee_devices` | list of objects | None | Same format as `moat_devices`, but supports Govee sensors H5051, H5072, H5074, H5075, and H5102.  I use this because the "python-bleson" library used here only supports 1 scan at a time, so this integration can't run at the same time as https://github.com/Home-Is-Where-You-Hang-Your-Hack/sensor.goveetemp_bt_hci |
+| `govee_devices` | list of objects | None | Same format as `moat_devices`, but supports Govee sensors H5051, H5072, H5074, H5075, and H5102.  I use this because the "python-bleson" library used here only supports 1 scan at a time, so this integration can't successfully run at the same time as https://github.com/Home-Is-Where-You-Hang-Your-Hack/sensor.goveetemp_bt_hci |
 
+##### Additional device configuration options
+| Option | Type |Default Value | Description |  
+| -- | -- | -- | -- |
+| `calibrate_temp` | float | `0.0` | Add this amount to each temperature measurement for this device (in degrees Fahrenheit or Celsius, depending on the "report_fahrenheit" setting). |
+| `calibrate_humidity` | float | `0.0` | Add this amount to each humidity measurement for this device (in %). |
+
+##### Full configuration example:
+```
+sensor:
+  - platform: moat_temp_hum_ble
+    report_fahrenheit: True
+    rounding: True
+    decimals: 1
+    period_secs: 60
+    log_spikes: True
+    update_when_unavailable: True
+    use_median: False
+    temp_range_min_celsius: -45.0
+    temp_range_max_celsius: 70.0
+    temperature_entities: True
+    humidity_entities: True
+    battery_entities: False
+    num_samples_entities: True
+    rssi_entities: False
+    hci_device: hci0
+    moat_devices:
+      - mac: "DE:49:A1:A2:A3:A4"
+        name: Deep Freezer
+        calibrate_temp: -0.55
+        calibrate_humidity: -3.0
+      - mac: "DE:49:C1:C2:C3:C4"
+        name: Kitchen
+        calibrate_temp: 2.2
+    govee_devices:
+      - mac: "A4:C1:38:A1:A2:A3"
+        name: Bedroom
+        calibrate_temp: 0.4
+```
 
 ### Debugging
 To enable logging for this component, add the following to configuration.yaml:
@@ -95,3 +136,4 @@ logger:
 ## Credits
   This was forked from https://github.com/Home-Is-Where-You-Hang-Your-Hack/sensor.goveetemp_bt_hci, which itself was based on [custom-components/sensor.mitemp_bt](https://github.com/custom-components/sensor.mitemp_bt).
   So, a big thank you to [@Thrilleratplay](https://community.home-assistant.io/u/thrilleratplay), [@tsymbaliuk](https://community.home-assistant.io/u/tsymbaliuk), and [@Magalex](https://community.home-assistant.io/u/Magalex)!
+  
