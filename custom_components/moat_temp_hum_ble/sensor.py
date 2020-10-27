@@ -5,7 +5,7 @@ Note that this file MUST be named sensor.py to match the top level name in confi
 import logging
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import List, Optional, Dict, Any, Sequence
+from typing import List, Optional, Dict, Any, Sequence, Union
 
 import voluptuous as vol  # type: ignore
 
@@ -26,6 +26,7 @@ from homeassistant.const import (  # type: ignore
     TEMP_FAHRENHEIT,
     ATTR_BATTERY_LEVEL,
 )
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import Entity  # type: ignore
 from homeassistant.helpers.event import track_point_in_utc_time  # type: ignore
 from .const import *
@@ -46,12 +47,13 @@ DEVICES_SCHEMA = vol.Schema(
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
+        vol.Optional(CONF_REPORT_FAHRENHEIT, default=DEFAULT_REPORT_FAHRENHEIT): cv.boolean,
         vol.Optional(CONF_ROUNDING, default=DEFAULT_ROUNDING): cv.boolean,
         vol.Optional(CONF_DECIMALS, default=DEFAULT_DECIMALS): cv.positive_int,
         vol.Optional(CONF_PERIOD_SECS, default=DEFAULT_PERIOD): cv.positive_int,
         vol.Optional(CONF_LOG_SPIKES, default=DEFAULT_LOG_SPIKES): cv.boolean,
+        vol.Optional(CONF_UPDATE_WHEN_UNAVAILABLE, default=DEFAULT_UPDATE_WHEN_UNAVAILABLE): cv.boolean,
         vol.Optional(CONF_USE_MEDIAN, default=DEFAULT_USE_MEDIAN): cv.boolean,
-        vol.Optional(CONF_REPORT_FAHRENHEIT, default=DEFAULT_REPORT_FAHRENHEIT): cv.boolean,
         vol.Optional(CONF_TEMP_RANGE_MIN_CELSIUS, default=DEFAULT_TEMP_RANGE_MIN): int,
         vol.Optional(CONF_TEMP_RANGE_MAX_CELSIUS, default=DEFAULT_TEMP_RANGE_MAX): int,
         vol.Optional(CONF_TEMPERATURE_ENTITIES, default=DEFAULT_TEMPERATURE_ENTITIES): cv.boolean,
@@ -68,20 +70,14 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 
 ###############################################################################
 
-@dataclass
-class SensorDeviceWrapper:
-    sensorDevice: SensorDevice
-    hassEntities: Sequence[Entity]
-    brand: DeviceBrand
-
 
 # Entry point!
-def setup_platform(hass, config, add_entities, discovery_info=None) -> None:
+def setup_platform(hass: HomeAssistant, config, add_entities, discovery_info=None) -> None:
     """Entry point to our integration, called by Home Assistant."""
 
     _ = discovery_info  # unused, but required by interface
 
-    _LOGGER.debug("Starting Bluetooth LE Humidity/Temperature Sensor platform")
+    _LOGGER.info("Starting Bluetooth LE Humidity/Temperature Sensor platform")
 
     device_wrappers: List[SensorDeviceWrapper] = []  # Data objects of configured devices
 
@@ -156,8 +152,9 @@ def setup_platform(hass, config, add_entities, discovery_info=None) -> None:
 
         add_entities(ha_entities)
 
-    def update_ble_devices() -> None:
-        """Write the collected data (inside devices) into the Home Assistant entities."""
+    def report_device_data() -> None:
+        """Move the collected data from each SensorDevice to the Home Assistant entities and reset the collected data.
+        """
         use_median = config[CONF_USE_MEDIAN]
 
         _DEV_STATE_ATTR = "_device_state_attributes"
@@ -167,60 +164,89 @@ def setup_platform(hass, config, add_entities, discovery_info=None) -> None:
             entities = curr_wrapper.hassEntities
             device = curr_wrapper.sensorDevice
 
-            _LOGGER.debug("Last mfg data for %r: %r", device.mac, device.last_raw_data)
+            temp_num = device.num_measurements
+            _LOGGER.debug("Last mfg data for %r: %r, count=%d", device.mac, device.last_raw_data,
+                          temp_num)
 
-            if device.last_raw_data:
+            curr_entity_index = 0
 
-                curr_entity_index = 0
+            # Temperature (optional, based on config)
+            if config[CONF_TEMPERATURE_ENTITIES]:
+                temperature_mean = device.mean_temperature
+                temperature_median = device.median_temperature
+                entities[curr_entity_index].device_state_attributes["mean"] = temperature_mean
+                entities[curr_entity_index].device_state_attributes["median"] = temperature_median
+                entities[curr_entity_index].state = temperature_median if use_median else temperature_mean
+                curr_entity_index += 1
 
-                # Temperature (optional, based on config)
-                if config[CONF_TEMPERATURE_ENTITIES]:
-                    temperature_mean = device.mean_temperature
-                    temperature_median = device.median_temperature
-                    getattr(entities[curr_entity_index], _DEV_STATE_ATTR)["mean"] = temperature_mean
-                    getattr(entities[curr_entity_index], _DEV_STATE_ATTR)["median"] = temperature_median
-                    setattr(entities[curr_entity_index], "_state", temperature_median if use_median else temperature_mean)
-                    curr_entity_index += 1
+            # Humidity (optional, based on config)
+            if config[CONF_HUMIDITY_ENTITIES]:
+                humidity_mean = device.mean_humidity
+                humidity_median = device.median_humidity
+                entities[curr_entity_index].device_state_attributes["mean"] = humidity_mean
+                entities[curr_entity_index].device_state_attributes["median"] = humidity_median
+                entities[curr_entity_index].state = humidity_median if use_median else humidity_mean
+                curr_entity_index += 1
 
-                # Humidity (optional, based on config)
-                if config[CONF_HUMIDITY_ENTITIES]:
-                    humidity_mean = device.mean_humidity
-                    humidity_median = device.median_humidity
-                    getattr(entities[curr_entity_index], _DEV_STATE_ATTR)["mean"] = humidity_mean
-                    getattr(entities[curr_entity_index], _DEV_STATE_ATTR)["median"] = humidity_median
-                    setattr(entities[curr_entity_index], "_state", humidity_median if use_median else humidity_mean)
-                    curr_entity_index += 1
+            # RSSI (optional, based on config)
+            if config[CONF_RSSI_ENTITIES]:
+                entities[curr_entity_index].state = device.rssi
+                curr_entity_index += 1
 
-                # RSSI (optional, based on config)
-                if config[CONF_RSSI_ENTITIES]:
-                    setattr(entities[curr_entity_index], "_state", device.rssi)
-                    curr_entity_index += 1
+            # Battery level (optional, based on config)
+            if config[CONF_BATTERY_ENTITIES]:
+                entities[curr_entity_index].state = device.battery_percentage
+                curr_entity_index += 1
 
-                # Battery level (optional, based on config)
-                if config[CONF_BATTERY_ENTITIES]:
-                    setattr(entities[curr_entity_index], "_state", device.battery_percentage)
-                    curr_entity_index += 1
+            # Number of samples per period (optional, based on config)
+            if config[CONF_NUM_SAMPLES_ENTITIES]:
+                entities[curr_entity_index].state = device.num_measurements
+                curr_entity_index += 1
 
-                # Number of samples per period (optional, based on config)
-                if config[CONF_NUM_SAMPLES_ENTITIES]:
-                    setattr(entities[curr_entity_index], "_state", device.num_measurements)
-                    curr_entity_index += 1
-
-                # All entities get the basic [untracked] attributes
-                for entity in entities:
-                    dev_state_attrs = getattr(entity, _DEV_STATE_ATTR)
+            # All entities get the basic [untracked] attributes
+            for entity in entities:
+                # Skip reporting 'None' if CONF_UPDATE_WHEN_UNAVAILABLE is false.
+                # Note that NumSamplesPerPeriodEntity will still be updated, since that is always valid.
+                if config[CONF_UPDATE_WHEN_UNAVAILABLE] or entity.state is not None:
+                    dev_state_attrs = entity.device_state_attributes
                     dev_state_attrs["last raw data"] = device.last_raw_data
                     dev_state_attrs["rssi"] = device.rssi
                     dev_state_attrs[ATTR_BATTERY_LEVEL] = device.battery_percentage
-                    if device.battery_millivolts is not None:
+                    # Only fill in "battery mV" if the device supports it.
+                    # The hasattr case is to make sure we set it to None if it was previously filled in, but
+                    # device.battery_millivolts is None due to no samples received this period.
+                    if (device.battery_millivolts is not None) or hasattr(dev_state_attrs, "battery mV"):
                         dev_state_attrs["battery mV"] = device.battery_millivolts
                     dev_state_attrs[num_measurements_attr] = device.num_measurements
-                    entity.async_schedule_update_ha_state()
 
-                device.reset()
+                    # TODO: even better, don't collect the data if it's disabled.
+                    # Check if it's enabled to avoid:
+                    #  WARNING (SyncWorker_9) [homeassistant.helpers.entity] Entity sensor.deep_freezer_temp is
+                    #  incorrectly being triggered for updates while it is disabled. This is a bug in the
+                    #  moat_temp_hum_ble integration
+                    if entity.enabled:
+                        entity.schedule_update_ha_state()
+                    else:
+                        _LOGGER.info("Entity %s is disabled; skip update.", entity.entity_id)
+
+            # TODO: There is a race condition.
+            # We are in a SyncWorker thread here, but the HCISocketPoller thread can
+            # concurrently update our device (within handle_meta_event).
+            if temp_num != device.num_measurements:
+                _LOGGER.debug("Measurements changed from %s to %s!", temp_num, device.num_measurements)
+
+            device.reset()
+
+    def schedule_update_ble_loop() -> None:
+        # update_ble_loop() will be called after CONF_PERIOD_SECS elapses.
+        # (And in the meantime, the HCISocketPoller thread will make calls to our handle_meta_event callback.)
+        point_in_time = dt_util.utcnow() + timedelta(seconds=config[CONF_PERIOD_SECS])
+        track_point_in_utc_time(hass, update_ble_loop, point_in_time)  # type: ignore
 
     def update_ble_loop(now) -> None:
-        """Update the Home Assistant Entities from our collected data and refresh the BLE scanning."""
+        """Update the Home Assistant Entities from our collected data and refresh the BLE scanning.
+
+        This probably shouldn't run in the event loop due to start_scanning potentially blocking."""
 
         _ = now  # unused, but required by interface
 
@@ -232,14 +258,12 @@ def setup_platform(hass, config, add_entities, discovery_info=None) -> None:
             # hciconfig hci0 up
             adapter.start_scanning()
 
-            update_ble_devices()
+            report_device_data()
         except RuntimeError as error:
             _LOGGER.error("Error during update_ble_loop: %s", error)
 
-        time_offset = dt_util.utcnow() + timedelta(seconds=config[CONF_PERIOD_SECS])
-        # update_ble_loop() will be called again after time_offset.
-        # (And in the meantime, the HCISocketPoller thread will make calls to our handle_meta_event callback.)
-        track_point_in_utc_time(hass, update_ble_loop, time_offset)  # type: ignore
+        # update_ble_loop() will be called again after CONF_PERIOD_SECS elapses.
+        schedule_update_ble_loop()
 
     ###########################################################################
 
@@ -254,18 +278,19 @@ def setup_platform(hass, config, add_entities, discovery_info=None) -> None:
 
     # Initialize configured devices
     init_configured_devices()
-    # Begin sensor update loop
-    update_ble_loop(dt_util.utcnow())
 
+    # update_ble_loop() will first be called after CONF_PERIOD_SECS elapses.
+    schedule_update_ble_loop()
 
-###############################################################################
+    _LOGGER.info("Done setting up Bluetooth LE Humidity/Temperature Sensor platform")
+
 
 class TempHumSensorEntity(Entity):
     """Base class for our HomeAssistant Entity classes."""
 
     def __init__(self, mac: str, entity_name: str, device_name: str, unique_id_prefix: str):
         """Initialize the Entity."""
-        self._state = None
+        self._state: Union[None, str, int, float] = None
         self._battery = None
         self._mac = mac
         self._unique_id = f'{unique_id_prefix}_{mac.replace(":", "")}'
@@ -279,13 +304,18 @@ class TempHumSensorEntity(Entity):
         return self._entity_name
 
     @property
-    def state(self):
+    def state(self) -> Union[None, str, int, float]:
         """Return the state of the Entity."""
         return self._state
 
+    @state.setter
+    def state(self, state: Union[None, str, int, float]) -> None:
+        """Set the state of the Entity."""
+        self._state = state
+
     @property
     def should_poll(self) -> bool:
-        """Don't poll; we will call async_schedule_update_ha_state from within our periodic update_ble_loop."""
+        """Don't poll; we will call schedule_update_ha_state from within our periodic update_ble_loop."""
         return False
 
     @property
@@ -311,6 +341,14 @@ class TempHumSensorEntity(Entity):
             },
             "name": self._device_name,
         }
+
+    async def async_added_to_hass(self) -> None:
+        """Run when entity about to be added to hass."""
+        _LOGGER.info("Adding entity %s (%s): %s", self.entity_id, self.unique_id, self.name)
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Run when entity will be removed from hass."""
+        _LOGGER.info("Removing entity %s (%s): %s", self.entity_id, self.unique_id, self.name)
 
 
 class TemperatureEntity(TempHumSensorEntity):
@@ -417,3 +455,10 @@ class NumSamplesPerPeriodEntity(TempHumSensorEntity):
     def device_class(self):
         """Return the Home Assistant device class."""
         return None
+
+
+@dataclass
+class SensorDeviceWrapper:
+    sensorDevice: SensorDevice
+    hassEntities: Sequence[TempHumSensorEntity]
+    brand: DeviceBrand
