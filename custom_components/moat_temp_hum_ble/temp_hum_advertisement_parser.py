@@ -12,6 +12,7 @@ from bleson.core.hci.type_converters import (
     rssi_from_byte,
     hex_string,
 )
+
 ###############################################################################
 from .const import DeviceBrand
 
@@ -38,10 +39,12 @@ def reverse_mac(mac_bytes: bytes) -> Optional[str]:
 
 
 def little_endian_to_unsigned_int(bytes_to_convert: bytes) -> int:
-    return int.from_bytes(bytes_to_convert, byteorder='little', signed=False)
+    return int.from_bytes(bytes_to_convert, byteorder="little", signed=False)
 
 
-def rescale_clamped(value: float, in_min: float, in_max: float, out_min: float, out_max: float) -> float:
+def rescale_clamped(
+    value: float, in_min: float, in_max: float, out_min: float, out_max: float
+) -> float:
     if value >= in_max:
         return out_max
     elif value <= in_min:
@@ -51,8 +54,9 @@ def rescale_clamped(value: float, in_min: float, in_max: float, out_min: float, 
 
 
 def moat_s2_battery_voltage_to_percentage(battery_voltage_mvolts: int) -> float:
-    # In reality, this isn't linear and it also depends on tempaerature.
-    # I'll collect samples and probably adjust when my batteries actually need replacement (sometime in 2021).
+    # In reality, this isn't linear and it also depends on temperature.
+    # I'll collect samples and probably adjust when my batteries actually need
+    # replacement (sometime in 2021).
     return rescale_clamped(battery_voltage_mvolts, 2760, 2820, 1.0, 100.0)
 
 
@@ -72,11 +76,14 @@ class TempHumAdvertisement:
         """Init."""
         try:
             #  Byte 0: Num reports to follow (we only expect 01)
-            #  Byte 1: GAP (Generic Access Profile) ADV type (can be 00=ADV_IND or 04=SCAN_RSP)
-            #  Byte 2: GAP Addr type (Govees send 00=LE_PUBLIC_ADDRESS, Moats send 01=LE_RANDOM_ADDRESS)
+            #  Byte 1: GAP (Generic Access Profile) ADV type (can be 00=ADV_IND or
+            #      04=SCAN_RSP)
+            #  Byte 2: GAP Addr type (Govees send 00=LE_PUBLIC_ADDRESS, Moats send
+            #      01=LE_RANDOM_ADDRESS)
             #  Bytes 3-8: MAC address (reverse byte order)
             self.mac = reverse_mac(data[3:9])
-            #  Byte 9: Length (not counting header or final RSSI byte, so should be 11 less than len(data).
+            #  Byte 9: Length (not counting header or final RSSI byte, so should be 11
+            #      less than len(data)).
             #  Bytes 10-[len(data)-1]: List of GAP Data
             #    Byte 0: GAP Data length
             #    Byte 1: GAP Data type
@@ -102,7 +109,13 @@ class TempHumAdvertisement:
                 payload_offset = pos + 2
                 payload_end = payload_offset + length - 1
                 payload = data[payload_offset:payload_end]
-                _LOGGER.debug("Pos=%d Type=%02x Len=%d Payload=%s", pos, gap_type, length, hex_string(payload))
+                _LOGGER.debug(
+                    "Pos=%d Type=%02x Len=%d Payload=%s",
+                    pos,
+                    gap_type,
+                    length,
+                    hex_string(payload),
+                )
                 if GAP_FLAGS == gap_type:
                     self.flags = payload[0]
                     _LOGGER.debug("Flags=%02x", self.flags)
@@ -119,14 +132,22 @@ class TempHumAdvertisement:
 
             # Not all advertisements contain the measurement data.
             if (brand is DeviceBrand.MOAT) and self.check_is_moat_s2():
-                # Packet format (including temperature and humidity conversions) were kindly provided by the Moat
-                # developer, Erik Laybourne.
+                # Packet format (including temperature and humidity conversions) were
+                # kindly provided by the Moat developer, Erik Laybourne.
 
                 # timestamp = little_endian_to_unsigned_int(self.mfg_data[8:12])
-                self.temperature = -46.85 + 175.72 * (little_endian_to_unsigned_int(self.mfg_data[12:14]) / 65536.0)
-                self.humidity = -6.0 + 125.0 * (little_endian_to_unsigned_int(self.mfg_data[14:16]) / 65536.0)
-                self.battery_millivolts = little_endian_to_unsigned_int(self.mfg_data[16:18])
-                self.battery = int(moat_s2_battery_voltage_to_percentage(self.battery_millivolts))
+                self.temperature = -46.85 + 175.72 * (
+                    little_endian_to_unsigned_int(self.mfg_data[12:14]) / 65536.0
+                )
+                self.humidity = -6.0 + 125.0 * (
+                    little_endian_to_unsigned_int(self.mfg_data[14:16]) / 65536.0
+                )
+                self.battery_millivolts = little_endian_to_unsigned_int(
+                    self.mfg_data[16:18]
+                )
+                self.battery = int(
+                    moat_s2_battery_voltage_to_percentage(self.battery_millivolts)
+                )
                 self.packet = hex_string(self.mfg_data[8:18]).replace(" ", "")
             elif brand is DeviceBrand.GOVEE:
                 if self.check_is_gvh5075_gvh5072():
@@ -153,8 +174,15 @@ class TempHumAdvertisement:
                     self.battery = int(self.mfg_data[7])
             else:
                 return
-            _LOGGER.debug("Read=%s %f %f %d (%s) %r",
-                          self.mac, self.temperature, self.humidity, self.battery, self.packet, self.rssi)
+            _LOGGER.debug(
+                "Read=%s %f %f %d (%s) %r",
+                self.mac,
+                self.temperature,
+                self.humidity,
+                self.battery,
+                self.packet,
+                self.rssi,
+            )
         except (ValueError, IndexError):
             pass
 
@@ -181,17 +209,17 @@ class TempHumAdvertisement:
     def _mfg_data_check(self, data_length: int, flags: int) -> bool:
         """Check if mfg data is of a certain length with the correct flag."""
         return (
-                hasattr(self, "mfg_data")
-                and len(self.mfg_data) == data_length
-                and self.flags == flags
+            hasattr(self, "mfg_data")
+            and len(self.mfg_data) == data_length
+            and self.flags == flags
         )
 
     def _mfg_data_service_uuid_check(self, service_uuid: str) -> bool:
         """Check if mfg data id is of a certain value."""
         return (
-                hasattr(self, "mfg_data")
-                and len(self.mfg_data) > 2
-                and hex_string(self.mfg_data[0:2]).replace(" ", "") == service_uuid
+            hasattr(self, "mfg_data")
+            and len(self.mfg_data) > 2
+            and hex_string(self.mfg_data[0:2]).replace(" ", "") == service_uuid
         )
 
 

@@ -33,16 +33,19 @@ class SensorDevice:
 
     # Configuration:
     _desc: Optional[str]
-    _report_fahrenheit: bool  # True for Fahrenheit, False for Celsius.
-    _decimal_places: Optional[int]  # Number of decimal places to round output to, or None for no rounding.
+    #: True for Fahrenheit, False for Celsius.
+    _report_fahrenheit: bool
+    #: Number of decimal places to round output to, or None for no rounding.
+    _decimal_places: Optional[int]
     _log_spikes: bool
     _temp_range_min: int
     _temp_range_max: int
+    #: When we report to HA, we will modify the temperature measurements by this
+    #: amount (in degrees Fahrenheit or Celsius, depending on the "report_fahrenheit"
+    #: setting).
     _calibrate_temp: float
-    """When we report to HA, we will modify the temperature measurements by this amount (in degrees Fahrenheit or
-     Celsius, depending on the "report_fahrenheit" setting)."""
+    #: When we report to HA, we will modify the measurements by this amount (in %).
     _calibrate_humidity: float
-    """When we report to HA, we will modify the measurements by this amount (in %)."""
 
     # Measurements (reset each period):
     _num_measurements: int
@@ -168,12 +171,20 @@ class SensorDevice:
         calibrated_avg = avg + self._calibrate_temp
         if self._decimal_places is not None:
             calibrated_avg = float(round(calibrated_avg, self._decimal_places))
-        _LOGGER.debug("%s: reporting %s (%s + %s)", self.mac, calibrated_avg, avg, self._calibrate_temp)
+        _LOGGER.debug(
+            "%s: reporting %s (%s + %s)",
+            self.mac,
+            calibrated_avg,
+            avg,
+            self._calibrate_temp,
+        )
         return calibrated_avg
 
     @property
     def median_temperature(self) -> Optional[float]:
-        """Median temperature of values collected, or None if all samples were spikes."""
+        """
+        Median temperature of values collected, or None if all samples were spikes.
+        """
         try:
             avg = sts.median(self._temperature_measurements)
         except (AssertionError, sts.StatisticsError):
@@ -183,7 +194,13 @@ class SensorDevice:
         calibrated_avg = avg + self._calibrate_temp
         if self._decimal_places is not None:
             calibrated_avg = float(round(calibrated_avg, self._decimal_places))
-        _LOGGER.debug("%s: reporting %s (%s + %s)", self.mac, calibrated_avg, avg, self._calibrate_temp)
+        _LOGGER.debug(
+            "%s: reporting %s (%s + %s)",
+            self.mac,
+            calibrated_avg,
+            avg,
+            self._calibrate_temp,
+        )
         return calibrated_avg
 
     @property
@@ -196,7 +213,13 @@ class SensorDevice:
         calibrated_avg = avg + self._calibrate_humidity
         if self._decimal_places is not None:
             calibrated_avg = float(round(calibrated_avg, self._decimal_places))
-        _LOGGER.debug("%s: reporting %s (%s + %s)", self.mac, calibrated_avg, avg, self._calibrate_humidity)
+        _LOGGER.debug(
+            "%s: reporting %s (%s + %s)",
+            self.mac,
+            calibrated_avg,
+            avg,
+            self._calibrate_humidity,
+        )
         return calibrated_avg
 
     @property
@@ -209,14 +232,28 @@ class SensorDevice:
         calibrated_avg = avg + self._calibrate_humidity
         if self._decimal_places is not None:
             calibrated_avg = float(round(calibrated_avg, self._decimal_places))
-        _LOGGER.debug("%s: reporting %s (%s + %s)", self.mac, calibrated_avg, avg, self._calibrate_humidity)
+        _LOGGER.debug(
+            "%s: reporting %s (%s + %s)",
+            self.mac,
+            calibrated_avg,
+            avg,
+            self._calibrate_humidity,
+        )
         return calibrated_avg
 
-    def update(self, temperature: Optional[float], humidity: Optional[float],
-               battery_percentage: Optional[int], battery_millivolts: Optional[int],
-               packet: Optional[Union[int, str]]) -> None:
+    def update(
+        self,
+        temperature: Optional[float],
+        humidity: Optional[float],
+        battery_percentage: Optional[int],
+        battery_millivolts: Optional[int],
+        packet: Optional[Union[int, str]],
+    ) -> None:
         # Check if temperature within bounds
-        if temperature is not None and self._temp_range_min <= temperature <= self._temp_range_max:
+        if (
+            temperature is not None
+            and self._temp_range_min <= temperature <= self._temp_range_max
+        ):
             self._temperature_measurements.append(temperature)
         elif self._log_spikes:
             _LOGGER.warning("Temperature out of range: %r (%r)", temperature, self._mac)
@@ -231,7 +268,11 @@ class SensorDevice:
         if battery_percentage is not None and 0 <= battery_percentage <= 100:
             self._battery_percentage_measurements.append(battery_percentage)
         elif self._log_spikes:
-            _LOGGER.warning("Battery percentage out of range: %r (%r)", battery_percentage, self._mac)
+            _LOGGER.warning(
+                "Battery percentage out of range: %r (%r)",
+                battery_percentage,
+                self._mac,
+            )
 
         # Check if battery voltage is present (not all models report this).
         if battery_millivolts is not None:
