@@ -1,4 +1,5 @@
 {
   "name": "Moat BLE Temperature/Humidity Sensor",
-  "domains": "sensor"
+  "domains": ["sensor"],
+  "iot_class": ["Local Polling"]
 }

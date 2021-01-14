@@ -1,4 +1,4 @@
-{% if installed or pending_update %}
+{% if installed %}
 
 ## 0.1
   - **Initial Release**
@@ -14,6 +14,7 @@ A custom component for [Home Assistant](https://www.home-assistant.io) that list
 
 ## Supported Devices
 * [Moat S2](https://www.amazon.com/dp/B08DK739F5)
+* Select Govee BLE Sensors
 
 ## Installation
 
