@@ -2,9 +2,12 @@
 
 A custom component for [Home Assistant](https://www.home-assistant.io) that listens for the BLE (Bluetooth Low Energy) advertising packets broadcast by Moat Bluetooth Thermometer/Hygrometers.
 
+[![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/SteveOnorato/moat_temp_hum_ble.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/SteveOnorato/moat_temp_hum_ble/context:python)
+[![Total alerts](https://img.shields.io/lgtm/alerts/g/SteveOnorato/moat_temp_hum_ble.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/SteveOnorato/moat_temp_hum_ble/alerts/)
 ## Supported Devices
 * [Moat S2](https://www.amazon.com/dp/B08DK739F5)
 * Select Govee BLE Sensors
+
 
 ## Installation
 
