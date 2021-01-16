@@ -1,6 +1,6 @@
 {% if installed %}
 
-## 0.1
+## 0.1.0
   - **Initial Release**
 
 {% endif %}
@@ -12,6 +12,9 @@
 
 A custom component for [Home Assistant](https://www.home-assistant.io) that listens for the BLE (Bluetooth Low Energy) advertising packets broadcast by Moat Bluetooth Thermometer/Hygrometers.
 
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg?style=plastic)](https://github.com/custom-components/hacs)
+[![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/SteveOnorato/moat_temp_hum_ble.svg?logo=lgtm&logoWidth=18&style=plastic)](https://lgtm.com/projects/g/SteveOnorato/moat_temp_hum_ble/context:python)
+[![Total alerts](https://img.shields.io/lgtm/alerts/g/SteveOnorato/moat_temp_hum_ble.svg?logo=lgtm&logoWidth=18&style=plastic)](https://lgtm.com/projects/g/SteveOnorato/moat_temp_hum_ble/alerts/)
 ## Supported Devices
 * [Moat S2](https://www.amazon.com/dp/B08DK739F5)
 * Select Govee BLE Sensors
@@ -21,11 +24,21 @@ A custom component for [Home Assistant](https://www.home-assistant.io) that list
 
 **1. Install the custom component:**
 
-- The easiest way is to install it with [HACS](https://hacs.xyz/). First install [HACS](https://hacs.xyz/) if you don't have it yet. After installation, the custom component can be found in the HACS store under integrations.
+- The easiest way is to install it with [HACS](https://hacs.xyz/).
+  - First install [HACS](https://hacs.xyz/) if you don't have it yet.
+  - Click on "HACS" in the Home Assistant UI sidebar to display the "Home Assistant Community Store" page.
+  - Click "Integrations".
+  - Click the vertical ellipsis in the top-right, choose "Custom repositories"
+    - Choose "Integration" as the Category.
+    - Paste in the custom repository URL: https://github.com/SteveOnorato/moat_temp_hum_ble
+    - Click "ADD".
+    - Click "X" to close the dialog.
+  - Click "INSTALL" under the new "Moat BLE Temperature/Humidity Sensor" item.
 
 - Alternatively, you can install it manually. Just copy & paste the content of the `moat_temp_hum_ble/custom_components` folder into your `config/custom_components` directory.
      As example, you will get the `sensor.py` file in the following path: `/config/custom_components/moat_temp_hum_ble/sensor.py`.
 
+*NOTE:* the following instructions about setting device permissions are an edge case for a very specific set up.  (If you do not understand, do not worry about it).
 - If running Home Assistant without root access, the [Bleson](https://github.com/TheCellule/python-bleson) Python library used for accessing Bluetooth requires the following permissions applied to the Python 3 binary. If using a virtual environment for HA, this binary will be in the virtual environment path.
 
      *NOTE*: Replace "path" with the path to the Python3 binary (example: /srv/homeassistant/bin/python3)
@@ -52,9 +65,8 @@ A custom component for [Home Assistant](https://www.home-assistant.io) that list
 
 In **configuration.yaml**, specify the sensor platform `moat_temp_hum_ble` and a list of devices with unique MAC address.
 
+#### Simple configuration example:
 *NOTE*: device name is optional.  If not provided, devices will be labeled using the MAC address.
-
-##### Simple configuration example:
 ```
 sensor:
   - platform: moat_temp_hum_ble
@@ -66,7 +78,26 @@ sensor:
         name: Kitchen
 ```
 
-##### Additional platform configuration options
+There are multiple ways to learn the MAC addresses for your Bluetooth devices.
+##### Windows
+* Use https://www.microsoft.com/en-us/p/bluetooth-le-explorer/9n0ztkf1qd98?activetab=pivot:overviewtab (thanks, @iamhueman)
+##### macOS
+* Use packetlogger.app from "Additional Tools for XCode" https://developer.apple.com/download/more/?=packetlogger (thanks, @tronicdude)
+##### Home Assistant Operating System (formerly HassOS):
+* Enable the SSH & Web Terminal Add-on under Supervisor -> Dashboard (see https://community.home-assistant.io/t/home-assistant-community-add-on-ssh-web-terminal/33820).
+  * You likely need to disable 'Protection mode' for SSH & Web Terminal and restart the add-on (to enable docker commands)
+* Then, use the Web Terminal to run the following:
+```
+docker exec -it $(docker ps -f name=homeassistant -q) bash
+hciconfig hci0 down
+hciconfig hci0 up
+hcitool -i hci0 lescan | grep -i 'Govee\|GVH\|Moat'
+```
+* Leave this running for a bit and it will display the matching devices as it hears from them.
+* Hit Ctrl+C when done.
+* You might want to re-enable 'Protection mode' for SSH & Web Terminal at this point.
+
+#### Additional platform configuration options
 | Option | Type |Default Value | Description |  
 | -- | -- | -- | -- |
 | `report_fahrenheit` | Boolean | `False` | True for Fahrenheit, False for Celsius. |
@@ -86,13 +117,13 @@ sensor:
 | `hci_device`| string | `hci0` | HCI device name used for scanning.  May need to be changed if you have multiple Bluetooth adapters connected. |
 | `govee_devices` | list of objects | None | Same format as `moat_devices`, but supports Govee sensors H5051, H5072, H5074, H5075, and H5102.  I use this because the "python-bleson" library used here only supports 1 scan at a time, so this integration can't successfully run at the same time as https://github.com/Home-Is-Where-You-Hang-Your-Hack/sensor.goveetemp_bt_hci |
 
-##### Additional device configuration options
+#### Additional device configuration options
 | Option | Type |Default Value | Description |  
 | -- | -- | -- | -- |
 | `calibrate_temp` | float | `0.0` | Add this amount to each temperature measurement for this device (in degrees Fahrenheit or Celsius, depending on the "report_fahrenheit" setting). |
 | `calibrate_humidity` | float | `0.0` | Add this amount to each humidity measurement for this device (in %). |
 
-##### Full configuration example:
+#### Full configuration example:
 ```
 sensor:
   - platform: moat_temp_hum_ble
