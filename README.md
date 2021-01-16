@@ -15,7 +15,16 @@ A custom component for [Home Assistant](https://www.home-assistant.io) that list
 
 **1. Install the custom component:**
 
-- Not ready yet: ~~The easiest way is to install it with [HACS](https://hacs.xyz/). First install [HACS](https://hacs.xyz/) if you don't have it yet. After installation, the custom component can be found in the HACS store under integrations.~~
+- The easiest way is to install it with [HACS](https://hacs.xyz/).
+  - First install [HACS](https://hacs.xyz/) if you don't have it yet.
+  - Click on "HACS" in the Home Assistant UI sidebar to display the "Home Assistant Community Store" page.
+  - Click "Integrations".
+  - Click the vertical ellipsis in the top-right, choose "Custom repositories"
+    - Choose "Integration" as the Category.
+    - Paste in the custom repository URL: https://github.com/SteveOnorato/moat_temp_hum_ble
+    - Click "ADD".
+    - Click "X" to close the dialog.
+  - Click "INSTALL" under the new "Moat BLE Temperature/Humidity Sensor" item.
 
 - Alternatively, you can install it manually. Just copy & paste the content of the `moat_temp_hum_ble/custom_components` folder into your `config/custom_components` directory.
      As example, you will get the `sensor.py` file in the following path: `/config/custom_components/moat_temp_hum_ble/sensor.py`.
