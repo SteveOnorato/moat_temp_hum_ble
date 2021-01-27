@@ -27,11 +27,21 @@ def twos_complement(n: int, w: int = 16) -> int:
     return n
 
 
+def decode_govee_temp(packet_value: int) -> float:
+    """Decode potential negative temperatures."""
+    # See https://github.com/Thrilleratplay/GoveeWatcher/issues/2
+
+    # The last 3 decimal digits encode the humidity, so use "// 1000" to mask them out.
+    if packet_value & 0x800000:
+        return ((packet_value ^ 0x800000) // 1000) / -10.0
+    return (packet_value // 1000) / 10.0
+
+
 #
 # Reverse MAC octet order, return as a string
 #
 def reverse_mac(mac_bytes: bytes) -> Optional[str]:
-    """Change LE order to BE."""
+    """Change Little Endian order to Big Endian."""
     if len(mac_bytes) != 6:
         return None
     octets = [format(c, "02x") for c in list(reversed(mac_bytes))]
@@ -98,6 +108,7 @@ class TempHumAdvertisement:
             self.humidity = None
             self.battery = None
             self.battery_millivolts = None
+            self.model = None
 
             pos = 10
             while pos < len(data) - 1:
@@ -120,7 +131,7 @@ class TempHumAdvertisement:
                     self.flags = payload[0]
                     _LOGGER.debug("Flags=%02x", self.flags)
                 elif GAP_NAME_COMPLETE == gap_type:
-                    self.name = str(payload)
+                    self.name = payload.decode("ascii")
                     _LOGGER.debug("Complete Name=%s", self.name)
                 elif GAP_SERVICE_DATA == gap_type:
                     self.mfg_data = payload
@@ -153,15 +164,17 @@ class TempHumAdvertisement:
                 if self.check_is_gvh5075_gvh5072():
                     mfg_data_5075 = hex_string(self.mfg_data[3:6]).replace(" ", "")
                     self.packet = int(mfg_data_5075, 16)
-                    self.temperature = (self.packet // 1000) / 10.0
+                    self.temperature = decode_govee_temp(self.packet)
                     self.humidity = (self.packet % 1000) / 10.0
                     self.battery = int(self.mfg_data[6])
+                    self.model = "Govee H5072/H5075"
                 elif self.check_is_gvh5102():
                     mfg_data_5075 = hex_string(self.mfg_data[4:7]).replace(" ", "")
                     self.packet = int(mfg_data_5075, 16)
-                    self.temperature = (self.packet // 1000) / 10.0
+                    self.temperature = decode_govee_temp(self.packet)
                     self.humidity = (self.packet % 1000) / 10.0
                     self.battery = int(self.mfg_data[7])
+                    self.model = "Govee H5101/H5102"
                 elif self.check_is_gvh5074() or self.check_is_gvh5051():
                     mfg_data_5074 = hex_string(self.mfg_data[3:7]).replace(" ", "")
                     temp_lsb = mfg_data_5074[2:4] + mfg_data_5074[0:2]
@@ -172,6 +185,7 @@ class TempHumAdvertisement:
                     temp_lsb_int = int(temp_lsb, 16)
                     self.temperature = float(twos_complement(temp_lsb_int) / 100)
                     self.battery = int(self.mfg_data[7])
+                    self.model = "Govee H5074/H5051"
             else:
                 return
             _LOGGER.debug(
