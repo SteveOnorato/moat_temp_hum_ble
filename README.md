@@ -106,7 +106,11 @@ hcitool -i hci0 lescan | grep -i 'Govee\|GVH\|Moat'
 | `num_samples_entities` | Boolean  | `False` | Can enable this if you want a separate entity to track the number of samples received each period for each sensor device. |
 | `rssi_entities` | Boolean  | `False` | Can enable this if you want a separate entity to track the RSSI for each sensor device. |
 | `hci_device`| string | `hci0` | HCI device name used for scanning.  May need to be changed if you have multiple Bluetooth adapters connected. |
-| `govee_devices` | list of objects | None | Same format as `moat_devices`, but supports Govee sensors H5051, H5072, H5074, H5075, and H5102.  I use this because the "python-bleson" library used here only supports 1 scan at a time, so this integration can't successfully run at the same time as https://github.com/Home-Is-Where-You-Hang-Your-Hack/sensor.goveetemp_bt_hci |
+| `govee_devices` | list of objects | None | Same format as `moat_devices`, but
+ supports (BLE mode only) for Govee sensors H5051, H5072, H5074, H5075, H5101
+ , H5102, and
+  H5177.  I use
+  this because the "python-bleson" library used here only supports 1 scan at a time, so this integration can't successfully run at the same time as https://github.com/Home-Is-Where-You-Hang-Your-Hack/sensor.goveetemp_bt_hci |
 
 #### Additional device configuration options
 | Option | Type |Default Value | Description |  
