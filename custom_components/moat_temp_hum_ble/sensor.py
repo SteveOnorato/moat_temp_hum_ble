@@ -347,8 +347,15 @@ def setup_platform(
                         )
 
             # TODO: There is a race condition.
-            # We are in a SyncWorker thread here, but the HCISocketPoller thread can
-            # concurrently update our device (within handle_meta_event).
+            # We are in a SyncWorker thread here, reading from "device", but the
+            # HCISocketPoller thread can concurrently update "device" (from within
+            # handle_meta_event).
+            # The impact is that we will occasionally not include a valid measurement
+            # when computing the statistics.
+            # As long as we're dealing with devices that are sending mostly redundant
+            # updates roughly every 2 seconds, I'm not so sure the cost of fixing it
+            # (locking or keeping a 2nd copy of the raw measurements data structures)
+            # is even worth it.
             if temp_num != device.num_measurements:
                 _LOGGER.debug(
                     "Measurements changed from %s to %s!",
