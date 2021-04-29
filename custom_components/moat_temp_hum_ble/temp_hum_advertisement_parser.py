@@ -81,6 +81,7 @@ class TempHumAdvertisement:
     rssi: Optional[int]
     battery: Optional[int]  # As estimated percentage.
     battery_millivolts: Optional[int]  # Not available for all models.
+    model: Optional[str]  # Best effort guess at the user-friendly model name.
 
     def __init__(self, data: bytes, brand: DeviceBrand):
         """Init."""
@@ -160,6 +161,7 @@ class TempHumAdvertisement:
                     moat_s2_battery_voltage_to_percentage(self.battery_millivolts)
                 )
                 self.packet = hex_string(self.mfg_data[8:18]).replace(" ", "")
+                self.model = "Moat S2"
             elif brand is DeviceBrand.GOVEE:
                 if self.check_is_gvh5075_gvh5072():
                     mfg_data_5075 = hex_string(self.mfg_data[3:6]).replace(" ", "")
@@ -175,27 +177,36 @@ class TempHumAdvertisement:
                     self.humidity = (self.packet % 1000) / 10.0
                     self.battery = int(self.mfg_data[7])
                     self.model = "Govee H5101/H5102"
-                elif self.check_is_gvh5074() or self.check_is_gvh5051():
-                    mfg_data_5074 = hex_string(self.mfg_data[3:7]).replace(" ", "")
-                    temp_lsb = mfg_data_5074[2:4] + mfg_data_5074[0:2]
-                    hum_lsb = mfg_data_5074[6:8] + mfg_data_5074[4:6]
-                    self.packet = temp_lsb + hum_lsb
-                    self.humidity = float(int(hum_lsb, 16) / 100)
-                    # Negative temperature stored an two's complement
-                    temp_lsb_int = int(temp_lsb, 16)
-                    self.temperature = float(twos_complement(temp_lsb_int) / 100)
-                    self.battery = int(self.mfg_data[7])
-                    self.model = "Govee H5074/H5051"
+                else:
+                    is_5074_or_5051 = False
+                    if self.check_is_gvh5074():
+                        self.model = "Govee H5074"
+                        is_5074_or_5051 = True
+                    elif self.check_is_gvh5051():
+                        self.model = "Govee H5051"
+                        is_5074_or_5051 = True
+
+                    if is_5074_or_5051:
+                        mfg_data_5074 = hex_string(self.mfg_data[3:7]).replace(" ", "")
+                        temp_lsb = mfg_data_5074[2:4] + mfg_data_5074[0:2]
+                        hum_lsb = mfg_data_5074[6:8] + mfg_data_5074[4:6]
+                        self.packet = temp_lsb + hum_lsb
+                        self.humidity = float(int(hum_lsb, 16) / 100)
+                        # Negative temperature stored an two's complement
+                        temp_lsb_int = int(temp_lsb, 16)
+                        self.temperature = float(twos_complement(temp_lsb_int) / 100)
+                        self.battery = int(self.mfg_data[7])
             else:
                 return
             _LOGGER.debug(
-                "Read=%s %f %f %d (%s) %r",
+                "Read=%s %f %f %d (%s) %r (%s)",
                 self.mac,
                 self.temperature,
                 self.humidity,
                 self.battery,
                 self.packet,
                 self.rssi,
+                self.model,
             )
         except (ValueError, IndexError):
             pass

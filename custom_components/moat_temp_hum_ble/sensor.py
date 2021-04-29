@@ -171,7 +171,11 @@ def setup_platform(
                         hci_packet.data, curr_wrapper.brand
                     )
 
-                    # If the advertisement was parsed (raw_data was populated), update
+                    # We may parse a model with or without measurements.
+                    if parsed_advertisement.model is not None:
+                        curr_wrapper.sensorDevice.set_model(parsed_advertisement.model)
+
+                    # If measurements were parsed ("packet" was populated), update
                     # our values.
                     if parsed_advertisement.packet is not None:
                         curr_wrapper.sensorDevice.update(
@@ -323,6 +327,7 @@ def setup_platform(
                     dev_state_attrs["last raw data"] = device.last_raw_data
                     dev_state_attrs["rssi"] = device.rssi
                     dev_state_attrs[ATTR_BATTERY_LEVEL] = device.battery_percentage
+                    dev_state_attrs["model"] = device.model
                     # Only fill in "battery mV" if the device supports it.
                     # The hasattr case is to make sure we set it to None if it was
                     # previously  filled in, but device.battery_millivolts is None

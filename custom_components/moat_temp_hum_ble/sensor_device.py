@@ -31,6 +31,9 @@ class SensorDevice:
     # Identity
     _mac: str
 
+    # Based on received packets, not reset each period.
+    _detected_model: Optional[str]
+
     # Configuration:
     _desc: Optional[str]
     #: True for Fahrenheit, False for Celsius.
@@ -59,6 +62,7 @@ class SensorDevice:
     def __init__(self, mac: str, device_params: CreateDeviceParams) -> None:
         """Init."""
         self._mac = mac
+        self._detected_model = None
         self._desc = device_params.description
         self._report_fahrenheit = device_params.report_fahrenheit
         self._decimal_places = device_params.decimal_places
@@ -79,12 +83,15 @@ class SensorDevice:
         self._battery_millivolt_measurements = []
         self._latest_raw_data_str = None
 
-    # Configuration:
-
     @property
     def mac(self) -> str:
         """Return MAC address."""
         return self._mac
+
+    @property
+    def model(self) -> Optional[str]:
+        """Return the auto-detected model."""
+        return self._detected_model
 
     @property
     def decimal_places(self) -> Optional[int]:
@@ -240,6 +247,9 @@ class SensorDevice:
             self._calibrate_humidity,
         )
         return calibrated_avg
+
+    def set_model(self, model: Optional[str]) -> None:
+        self._detected_model = model
 
     def update(
         self,
