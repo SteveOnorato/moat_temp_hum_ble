@@ -4,13 +4,17 @@ from typing import List, Optional, Union
 import statistics as sts
 import logging
 
-from homeassistant.util.temperature import celsius_to_fahrenheit
 from .const import (
     HUMIDITY_MIN,
     HUMIDITY_MAX,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def celsius_to_fahrenheit(celsius: float) -> float:
+    """Convert a temperature in Celsius to Fahrenheit."""
+    return celsius * 1.8 + 32.0
 
 
 @dataclass
