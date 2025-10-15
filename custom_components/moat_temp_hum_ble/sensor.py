@@ -17,14 +17,12 @@ from bleson.core.hci.constants import EVT_LE_ADVERTISING_REPORT  # type: ignore
 from bleson.core.hci.type_converters import hex_string  # type: ignore
 from bleson.core.types import BDAddress  # type: ignore
 from homeassistant.components import sensor
-from homeassistant.components.sensor import PLATFORM_SCHEMA  # type: ignore
+from homeassistant.components.sensor import ( # type: ignore
+    SensorDeviceClass,
+    PLATFORM_SCHEMA
+)
 from homeassistant.const import (  # type: ignore
-    DEVICE_CLASS_TEMPERATURE,
-    DEVICE_CLASS_HUMIDITY,
-    DEVICE_CLASS_BATTERY,
-    DEVICE_CLASS_SIGNAL_STRENGTH,
-    TEMP_CELSIUS,
-    TEMP_FAHRENHEIT,
+    UnitOfTemperature,
     ATTR_BATTERY_LEVEL,
 )
 from homeassistant.core import HomeAssistant, callback
@@ -518,12 +516,12 @@ class TemperatureEntity(TempHumSensorEntity):
     @property
     def unit_of_measurement(self) -> str:
         """Return the unit of measurement."""
-        return TEMP_FAHRENHEIT if self._report_fahrenheit else TEMP_CELSIUS
+        return UnitOfTemperature.FAHRENHEIT if self._report_fahrenheit else UnitOfTemperature.CELSIUS
 
     @property
     def device_class(self):
         """Return the Home Assistant device class."""
-        return DEVICE_CLASS_TEMPERATURE
+        return SensorDeviceClass.TEMPERATURE
 
 
 class HumidityEntity(TempHumSensorEntity):
@@ -546,7 +544,7 @@ class HumidityEntity(TempHumSensorEntity):
     @property
     def device_class(self):
         """Return the Home Assistant device class."""
-        return DEVICE_CLASS_HUMIDITY
+        return SensorDeviceClass.HUMIDITY
 
 
 class RssiEntity(TempHumSensorEntity):
@@ -569,7 +567,7 @@ class RssiEntity(TempHumSensorEntity):
     @property
     def device_class(self):
         """Return the Home Assistant device class."""
-        return DEVICE_CLASS_SIGNAL_STRENGTH
+        return SensorDeviceClass.SIGNAL_STRENGTH
 
 
 class BatteryLevelEntity(TempHumSensorEntity):
@@ -592,7 +590,7 @@ class BatteryLevelEntity(TempHumSensorEntity):
     @property
     def device_class(self):
         """Return the Home Assistant device class."""
-        return DEVICE_CLASS_BATTERY
+        return SensorDeviceClass.BATTERY
 
 
 class NumSamplesPerPeriodEntity(TempHumSensorEntity):
